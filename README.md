@@ -16,3 +16,5 @@ run `dualpipe_step.py` and `dualpipe.py`
 ## About
 
 this repo is part of lecture: "LLM from scratch". This repo Not to be used for any commercial purposes without permission.
+
+License: CC-BY-NC-ND-4.0
