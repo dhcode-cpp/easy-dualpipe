@@ -27,7 +27,7 @@ def step_schedule(x, phase, rank, world_size):
             it_idx.extend([x[1][f_idx_1]])
             f_idx_1 += 1
 
-    # step2: f0f1
+    # step2: f1f0
     '''
     rank 0~7 -> 0,1,2,3, 3,2,1,0
     '''
@@ -68,7 +68,7 @@ def step_schedule(x, phase, rank, world_size):
         b_idx_1 += 1
         b_idx_0 += 1
     
-    # step4: b1
+    # step4: b0
     step = abs(world_size // 2 - rank) + is_in_second_half
     for i, _ in enumerate(range(step)):
         if is_in_first_half:
