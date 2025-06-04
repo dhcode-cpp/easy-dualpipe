@@ -46,7 +46,6 @@ class DualPipe:
         self.stage_output_grad_lists[phase][b_idx] = dx
     
     def recv_output(self, phase):
-
         is_first_stage = (self.is_first_rank and phase == 0) or (self.is_last_rank and phase == 1)
         if is_first_stage:
             return
@@ -136,8 +135,9 @@ class DualPipe:
 
     def step(self, x, y, known_shape):
         '''
-        known tensor 是为了便于接收rank之间传递的tensor, 而前提是我们需要知道tensor的尺寸
+        easy-dualpipe design a simplest bi-directional pipeline parallelism's schedule.
         '''
+        # known tensor 是为了便于接收rank之间传递的tensor, 而前提是我们需要知道tensor的尺寸
         self.known_tensor = torch.zeros(known_shape)
         for i in range(self.world_size):
             for j in range(2): # phase
@@ -186,7 +186,7 @@ class DualPipe:
         
         self.comm_wait()
 
-        # TODO: reduce-gradient and update
+        #TODO: reduce-gradient and update
 
         return 
              
@@ -215,21 +215,18 @@ def run(rank, master_addr, master_port, world_size, backend='gloo'):
     print(f'[rank{rank}] x_list:{x_list[0]}, y_list:{y_list[0]}')
     tmp_shape = [bs // world_size, dim]
     
-
-    # model1和2的关系为:
+    # reverse parameters
     # model_0:  [layer0, layer1], [layer2, layer3], ..., [layer6, layer7]
     # model_1:  [layer6, layer7], [layer_4, layer5], ..., [layer0, layer1]
     pipe_model_0 = ZeroBubbleModel(dim, num_blocks=num_blocks, rank = rank, world_size=world_size)
     pipe_model_1 = ZeroBubbleModel(dim, num_blocks=num_blocks, rank = rank, world_size=world_size)
     dualpipe = DualPipe([pipe_model_0, pipe_model_1], dim = dim, rank = rank, world_size=world_size)
 
-    # '''
-    # pair: (x_list_a, y_list_a), (x_list_b, x_list_b)
+    # pair: (x_list_a, y_list_a), (x_list_b, y_list_b)
     # rank 0: x_list_a = [xa1, xa2, xa3, xa4], y_list_b = [yb1, yb2, yb3, yb4]
     # rank 1: x_list = [-, -, -, -], y_list = [-, -, -, -]
     # rank i: x_list = [-, -, -, -], y_list = [-, -, -, -]
     # rank N: x_list_b = [xb1, xb2, xb3, xb4], y_list_a = [ya1, ya2, ya3, ya4]
-    # '''
     dualpipe.step( x = x_list, y = y_list, known_shape = tmp_shape)
             
     dist.destroy_process_group()

@@ -1,4 +1,4 @@
-# python step_dualpipe.py
+# python dualpipe_step.py
 
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -83,7 +83,7 @@ def step_schedule(x, phase, rank, world_size):
 
 def run_step(rank, master_addr, master_port, world_size, backend='gloo'):
     dist.init_process_group(backend = 'gloo', 
-                            init_method = 'tcp://127.0.0.1:' + master_port,
+                            init_method = 'tcp://' + master_addr +':' + master_port,
                             rank=rank, 
                             world_size=world_size)
 

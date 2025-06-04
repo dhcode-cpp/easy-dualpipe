@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 import torch.distributed as dist
@@ -62,13 +61,14 @@ class ZeroBubbleModel(nn.Module):
         return layers_output, x # [[input, hidden],...], output
     
     def backward_zero_bubble(self, layers_output, do, b_idx, is_send = True, dst= None):
-        dx = None
+        # step1: ZeroBubble backward dx      
+        # dx = None
         for layer, layer_output in zip(reversed( self.layers), reversed(layers_output)):
             dh, dx = layer.backward_for_input(do)
             layer_output.append(dh)
             layer_output.append(dx)
 
-        # 将 dx 传送到上一个 rank
+        # step2: isend dx
         if self.rank != 0 and is_send:
             if dst == None:
                 req = dist.isend(dx, dst = self.rank-1, tag=10086)
@@ -78,7 +78,7 @@ class ZeroBubbleModel(nn.Module):
                 print(f'[rank{self.rank}] dst:{dst}, dx isend-backward')
             req.wait()
         
-        # 计算梯度
+        # step3: ZeroBubble backward dw
         for layer, layer_output in zip(reversed( self.layers), reversed(layers_output)):
             layer.backward_for_weight(
                 x = layer_output[0],
