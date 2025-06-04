@@ -158,15 +158,13 @@ class DualPipe:
         for i in range(step):
             self.forward_step(phase = cur_phase, x = x[i]) 
 
-        # # step2: f1f0
-        # print('-----f1f0-----')
+        # step2: f1f0
         step = world_size // 2 - (abs(world_size // 2 - rank) + is_in_second_half)
         for i in range(step):
             self.forward_step(phase = next_phase, x = x[i])
             self.forward_step(phase = cur_phase, x = x[i])
         
         # step2: f1b1
-        # print('-----f1b1-----')
         step = abs(world_size // 2 - rank) + is_in_second_half
         for i in range(step):
             self.forward_step(phase = next_phase, x = x[i])  
@@ -174,7 +172,6 @@ class DualPipe:
         
         # step3: b0b1
         step = world_size // 2 - (abs(world_size // 2 - rank) + is_in_second_half)
-        # b0b1 实际计算
         for i in range(step):
             self.backward_step(phase = cur_phase, y = y[i]) 
             self.backward_step(phase = next_phase, y = y[i]) 
@@ -186,7 +183,7 @@ class DualPipe:
         
         self.comm_wait()
 
-        #TODO: reduce-gradient and update
+        #TODO: reduce-gradient
 
         return 
              
@@ -198,12 +195,18 @@ def run(rank, master_addr, master_port, world_size, backend='gloo'):
                             rank=rank, 
                             world_size=world_size)
 
-    # 准备数据
+    # config
     dim = 512
     num_blocks = 16 
     bs = 32
     micro_batch_size = world_size 
 
+    # Create 2-side inputs and label
+    # pair: (x_list_a, y_list_a), (x_list_b, y_list_b)
+    # rank 0: x_list_a = [xa1, xa2, xa3, xa4], y_list_b = [yb1, yb2, yb3, yb4]
+    # rank 1: x_list = [-, -, -, -], y_list = [-, -, -, -]
+    # rank i: x_list = [-, -, -, -], y_list = [-, -, -, -]
+    # rank N: x_list_b = [xb1, xb2, xb3, xb4], y_list_a = [ya1, ya2, ya3, ya4]
     if rank == 0 or rank == world_size -1:
         x = torch.randn(bs, dim)
         y = torch.randn(bs, dim)
@@ -215,19 +218,17 @@ def run(rank, master_addr, master_port, world_size, backend='gloo'):
     print(f'[rank{rank}] x_list:{x_list[0]}, y_list:{y_list[0]}')
     tmp_shape = [bs // world_size, dim]
     
-    # reverse parameters
+    # Create 2-model 
     # model_0:  [layer0, layer1], [layer2, layer3], ..., [layer6, layer7]
     # model_1:  [layer6, layer7], [layer_4, layer5], ..., [layer0, layer1]
     pipe_model_0 = ZeroBubbleModel(dim, num_blocks=num_blocks, rank = rank, world_size=world_size)
     pipe_model_1 = ZeroBubbleModel(dim, num_blocks=num_blocks, rank = rank, world_size=world_size)
     dualpipe = DualPipe([pipe_model_0, pipe_model_1], dim = dim, rank = rank, world_size=world_size)
 
-    # pair: (x_list_a, y_list_a), (x_list_b, y_list_b)
-    # rank 0: x_list_a = [xa1, xa2, xa3, xa4], y_list_b = [yb1, yb2, yb3, yb4]
-    # rank 1: x_list = [-, -, -, -], y_list = [-, -, -, -]
-    # rank i: x_list = [-, -, -, -], y_list = [-, -, -, -]
-    # rank N: x_list_b = [xb1, xb2, xb3, xb4], y_list_a = [ya1, ya2, ya3, ya4]
+    # start dualpipe step 
     dualpipe.step( x = x_list, y = y_list, known_shape = tmp_shape)
+
+    # TODO: Optimizer.update()
             
     dist.destroy_process_group()
 
