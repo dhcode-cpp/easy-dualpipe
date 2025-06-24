@@ -47,7 +47,7 @@ minimal distribution training implementation from scratch
 
 微信：xiaodongguaAIGC
 
-<img src="./README.assets/IMG_8606.JPG" alt="IMG_8606" style="zoom:25%;" />
+<img src="./README.assets/IMG_8606.JPG" alt="IMG_8606" width="300"  />
 
 ## About
 
